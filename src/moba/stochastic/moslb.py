@@ -112,7 +112,8 @@ class moslb:
 
     def take_action(self, 
         arm:np.ndarray, 
-        alpha: float=1.) -> int: 
+        alpha: float=1.
+        ) -> int: 
         """
         Take an action based on P-UCB algorithm
 

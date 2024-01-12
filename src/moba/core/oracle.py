@@ -9,7 +9,7 @@ class soEnvironment:
 
 
 
-class moEnvironment: 
+class moStochasticEnvironment: 
     def __init__(
         self, 
         num_obj:int, 
