@@ -1,15 +1,45 @@
 import numpy as np
 
 
-class soEnvironment: 
+class soMABEnvironment: 
     def __init__(self, 
-                 num_dim: int, 
+                 num_arm: int=None, 
                  ) -> None:
-        pass
+        if num_arm is not None: self.K = num_arm
+
+    @property
+    def num_arm(self): 
+        return self.K 
+
+    # def expected_reward(self, 
+    #                     arm: int,
+    #                     ) -> float: 
+    #     """
+    #     Method to evaluate the unknown reward function
+    #     """
+    #     raise NotImplementedError("Subclasses should implement this method.")
+    
+    def get_reward(self, 
+                   arm: int,
+                   ) -> float: 
+        """
+        Get the reward for the arm
+
+        Parameters
+        ----------
+        arm : int
+            index of the selected arm
+
+        Returns
+        -------
+        float
+            reward value
+        """
+        raise NotImplementedError("Subclasses should implement this method.")
 
 
 
-class moStochasticEnvironment: 
+class moContextualMABEnvironment: 
     def __init__(
         self, 
         num_obj:int, 

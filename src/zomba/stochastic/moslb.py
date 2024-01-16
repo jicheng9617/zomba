@@ -1,6 +1,6 @@
 import numpy as np 
 
-from moba.utils import par_non_dominated_sorting
+from zomba.utils import par_non_dominated_sorting
 
 class moslb:
     def __init__(self, 
