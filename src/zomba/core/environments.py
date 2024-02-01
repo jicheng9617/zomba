@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class soMABEnvironment: 
+class mabEnv: 
     def __init__(self, 
                  num_arm: int=None, 
                  ) -> None:

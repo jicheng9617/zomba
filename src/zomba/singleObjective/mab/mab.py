@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import soMABAgent
+from ...core import soMABAgent
 
 
 
@@ -26,13 +26,15 @@ class epsilonGreedy(soMABAgent):
     #           ) -> None:
     #     super().reset(num_arm=num_arm, init_estimates=init_estimates) 
     #     if epsilon is not None: self.epsilon = epsilon 
+        
+    def _eval_epsilon(self): 
+        return self.epsilon
 
-    def take_action(self, 
-                    epsilon: float=None):
+    def take_action(self):
 
-        if epsilon is not None: self.epsilon = epsilon 
+        epsilon = self._eval_epsilon()
 
-        if np.random.random() < self.epsilon:
+        if np.random.random() < epsilon:
             return np.random.randint(0, self.K)  # random selection
         else:
             return np.argmax(self.estimates)  # greedy selection
@@ -42,7 +44,7 @@ class upperConfidenceBound(soMABAgent):
     def __init__(self, 
                  num_arm: int =None, 
                  delta: float=None, 
-                 c: float = 1., 
+                 coff: float = 1., 
                  ) -> None:
         """
         Upper confidence bound (UCB) algorithm 
@@ -58,7 +60,7 @@ class upperConfidenceBound(soMABAgent):
         """
         super().__init__(num_arm=num_arm)
         self.delta = delta 
-        self.c = c 
+        self.c = coff 
 
     @property
     def uncertainty(self): 
@@ -69,10 +71,10 @@ class upperConfidenceBound(soMABAgent):
     
     def take_action(self, 
                     delta: float=None, 
-                    c: float=None, 
+                    coff: float=None, 
                     ) -> int:
         if delta is not None: self.delta = delta 
-        if c is not None: self.c = c 
+        if coff is not None: self.c = coff 
 
         ucb = self.estimates + self.c * self.uncertainty 
         return np.argmax(ucb)

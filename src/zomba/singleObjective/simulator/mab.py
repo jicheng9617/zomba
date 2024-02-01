@@ -1,13 +1,13 @@
 import numpy as np 
 
-from zomba.core.environments import soMABEnvironment
+from ...core import mabEnv
 
-class soSimulatorMAB(soMABEnvironment): 
+class mabSimulator(mabEnv): 
     def __init__(self, 
                  num_arm: int=None,
                  ) -> None:
         
-        super(soSimulatorMAB, self).__init__(num_arm=num_arm)
+        super(mabSimulator, self).__init__(num_arm=num_arm)
     
     @property
     def expected_rewards(self): 
@@ -15,7 +15,11 @@ class soSimulatorMAB(soMABEnvironment):
     
     @property
     def optimal_arm(self): 
-        return self.opt_ind
+        return self.opt_ind 
+    
+    @property 
+    def optimal_reward(self): 
+        return self.p[self.optimal_arm]
 
     def reset(self, 
               num_arm: int=None, 
@@ -27,40 +31,39 @@ class soSimulatorMAB(soMABEnvironment):
 
     def _eval_optimal(self):
 
-        self.opt_ind = np.argmax(self.probs) 
+        self.opt_ind = np.argmax(self.p) 
         
     def get_regret(self, arm: int) -> float: 
-
-        if isinstance(arm, int): 
-            return self._eval_regret_arm(arm) 
-        elif isinstance(arm, np.ndarray): 
+        if isinstance(arm, np.ndarray): 
             return np.array(
                 [self._eval_regret_arm(a_i) for a_i in arm]
             )
+        else: 
+            return self._eval_regret_arm(arm) 
     
     def _eval_regret_arm(self, arm: int) -> float: 
 
-        raise self.optimal_reward - self.probs[arm] 
+        return self.optimal_reward - self.p[arm] 
     
     def get_reward(self, arm: int) -> float:
         return super().get_reward(arm)
 
 
 
-class soSimulatorBernoulliMAB(soSimulatorMAB):
+class mabSimulator_Bernoulli(mabSimulator):
     def __init__(self, 
                  num_arm: int=None, 
                  ) -> None:
         
-        super(soSimulatorBernoulliMAB, self).__init__(num_arm=num_arm)
+        super(mabSimulator_Bernoulli, self).__init__(num_arm=num_arm)
 
-    def get_reward(self, action):
+    def get_reward(self, arm: int):
         
-        return 1 if np.random.rand() < self.p[action] else 0
+        return 1 if np.random.rand() < self.p[arm] else 0
         
         
 
-class soSimulatorMABGaussian(soSimulatorMAB): 
+class mabSimulator_Gaussian(mabSimulator): 
     def __init__(self, num_arm: int = None) -> None:
         #TODO
         pass
