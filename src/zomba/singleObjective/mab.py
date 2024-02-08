@@ -1,10 +1,10 @@
 import numpy as np 
 
-from ...core import soMABAgent
+from zomba.core import MABAgent
 
 
 
-class epsilonGreedy(soMABAgent):
+class epsilonGreedy(MABAgent):
     def __init__(self, 
                  num_arm: int=None, 
                  epsilon: float=.01,
@@ -40,7 +40,7 @@ class epsilonGreedy(soMABAgent):
             return np.argmax(self.estimates)  # greedy selection
 
 
-class upperConfidenceBound(soMABAgent): 
+class upperConfidenceBound(MABAgent): 
     def __init__(self, 
                  num_arm: int =None, 
                  delta: float=None, 
@@ -80,7 +80,7 @@ class upperConfidenceBound(soMABAgent):
         return np.argmax(ucb)
 
 
-class ThompsonSampling(soMABAgent): 
+class ThompsonSampling(MABAgent): 
     def __init__(self, 
                  num_arm: int = None, 
                  ) -> None:

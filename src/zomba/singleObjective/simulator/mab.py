@@ -1,13 +1,13 @@
 import numpy as np 
 
-from ...core import mabEnv
+from ...core import MABEnv
 
-class mabSimulator(mabEnv): 
+class MABSimulator(MABEnv): 
     def __init__(self, 
                  num_arm: int=None,
                  ) -> None:
         
-        super(mabSimulator, self).__init__(num_arm=num_arm)
+        super(MABSimulator, self).__init__(num_arm=num_arm)
     
     @property
     def expected_rewards(self): 
@@ -50,12 +50,12 @@ class mabSimulator(mabEnv):
 
 
 
-class mabSimulator_Bernoulli(mabSimulator):
+class MABSimulator_Bernoulli(MABSimulator):
     def __init__(self, 
                  num_arm: int=None, 
                  ) -> None:
         
-        super(mabSimulator_Bernoulli, self).__init__(num_arm=num_arm)
+        super(MABSimulator_Bernoulli, self).__init__(num_arm=num_arm)
 
     def get_reward(self, arm: int):
         
@@ -63,7 +63,7 @@ class mabSimulator_Bernoulli(mabSimulator):
         
         
 
-class mabSimulator_Gaussian(mabSimulator): 
+class mabSimulator_Gaussian(MABSimulator): 
     def __init__(self, num_arm: int = None) -> None:
         #TODO
         pass

@@ -1,3 +1,5 @@
-from .agent import soMABAgent
+from .agent import MABAgent
 
-from .environments import soMABEnvironment, moContextualMABEnvironment
+from .environment import (MABEnv,
+                          contextMABEnv,
+                          moContextMABEnv)

@@ -8,7 +8,7 @@ class Agent():
 
 
 
-class soMABAgent: 
+class MABAgent: 
     def __init__(self, 
                  num_arm: int=None, 
                  ) -> None:
