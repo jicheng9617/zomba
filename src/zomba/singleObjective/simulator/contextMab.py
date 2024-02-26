@@ -132,9 +132,9 @@ class slbSimulator(contextMABSimulator):
     
     def get_reward(self, arm: int) -> float:
         if isinstance(arm, np.ndarray):
-            return self.rewards[arm] + self._noise(size=len(arm))
+            return self.expected_rewards[arm] + self._noise(size=len(arm))
         else: 
-            return self.rewards[arm] + self._noise(size=None)
+            return self.expected_rewards[arm] + self._noise(size=None)
 
     def _sample_theta(self): 
         unitVec = np.random.normal(size=self.d)
@@ -142,11 +142,11 @@ class slbSimulator(contextMABSimulator):
         self.th = np.random.uniform() ** (1 / self.d) * unitVec
             
     def _eval_optimal(self):
-        self.rewards = self.A @ self.th.T
-        self.opt_arm = np.argmax(self.rewards) 
+        self.expected_rewards = self.A @ self.th.T
+        self.opt_arm = np.argmax(self.expected_rewards) 
         
     def _eval_regret_arm(self, arm):
-        return self.rewards[self.optimal_arm] - self.rewards[arm]
+        return self.expected_rewards[self.optimal_arm] - self.expected_rewards[arm]
     
     def _noise(self, size: int): 
         return np.random.normal(loc=0.0, scale=self.R, size=size)

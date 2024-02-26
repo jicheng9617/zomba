@@ -18,14 +18,14 @@ class epsilonGreedy(MABAgent):
         """
         super(epsilonGreedy, self).__init__(num_arm=num_arm)
         self.epsilon = epsilon 
-
-    # def reset(self, 
-    #           num_arm: int = None, 
-    #           init_estimates: float = 1., 
-    #           epsilon: float=None, 
-    #           ) -> None:
-    #     super().reset(num_arm=num_arm, init_estimates=init_estimates) 
-    #     if epsilon is not None: self.epsilon = epsilon 
+    
+    def reset(self, 
+              num_arm: int = None, 
+              init_estimates: float=1.0, 
+              ) -> None:
+        
+        super().reset(num_arm=num_arm)
+        self.estimates = np.array([init_estimates] * self.K)
         
     def _eval_epsilon(self): 
         return self.epsilon
@@ -38,6 +38,15 @@ class epsilonGreedy(MABAgent):
             return np.random.randint(0, self.K)  # random selection
         else:
             return np.argmax(self.estimates)  # greedy selection
+    
+    def update(self, 
+               action: int, 
+               reward: float, 
+               ): 
+        
+        super().update(action=action, 
+                       reward=reward)
+        self.estimates[action] += 1. / (self.counts[action] + 1) * (reward - self.estimates[action])
 
 
 class upperConfidenceBound(MABAgent): 
@@ -69,6 +78,14 @@ class upperConfidenceBound(MABAgent):
         else: 
             return np.sqrt( -np.log(self.delta) / 2*(self.counts+1) )
     
+    def reset(self, 
+              num_arm: int = None, 
+              init_estimates: float=1.0, 
+              ) -> None:
+        
+        super().reset(num_arm=num_arm)
+        self.estimates = np.array([init_estimates] * self.K)
+    
     def take_action(self, 
                     delta: float=None, 
                     coff: float=None, 
@@ -78,6 +95,16 @@ class upperConfidenceBound(MABAgent):
 
         ucb = self.estimates + self.c * self.uncertainty 
         return np.argmax(ucb)
+    
+    def update(self, 
+               action: int, 
+               reward: float, 
+               ): 
+        
+        super().update(action=action, 
+                       reward=reward)
+        self.estimates[action] += 1. / (self.counts[action] + 1) * (reward - self.estimates[action])
+
 
 
 class ThompsonSampling(MABAgent): 

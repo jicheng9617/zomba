@@ -1,1 +1,3 @@
-from .simulator_mab import soSimulatorBernoulliMAB
+from .mab import MABSimulator_Bernoulli
+from .contextMab import (contextMABSimulator, 
+                         slbSimulator)
