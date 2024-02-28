@@ -1,3 +1,3 @@
 from .mab import MABSimulator_Bernoulli
-from .contextMab import (contextMABSimulator, 
-                         slbSimulator)
+from .contextual import (contextMABSimulator, 
+                         SLBSimulator)

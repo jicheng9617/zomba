@@ -106,7 +106,7 @@ def par_dominance(u: np.ndarray, v: np.ndarray) -> bool:
 
     return True
     
-def pc_dominance(u:list, v:list) -> bool: 
+def pc_dominance(u: list, v: list) -> bool: 
     """
     Optimality whether u is Pareto-lexicographic
     under priority chains dominated v
@@ -129,7 +129,7 @@ def pc_dominance(u:list, v:list) -> bool:
             return False
     return True
     
-def pc_non_dominated_sorting(pop: list): 
+def pc_non_dominated_sorting(pop: list[np.ndarray]): 
     c = len(pop)
     Np = pop[0].shape[0] 
     non_dominate_ind = []
@@ -189,6 +189,8 @@ def chain_filter(arm, D1, u_t, l_t):
 
 if __name__ == "__main__": 
 
+    print()
+    
     # x1 = [np.array([1., -1.]), np.array([1., -1.])]
 
     # x2 = [np.array([1., 1.]), np.random.randn(2)]
@@ -213,5 +215,3 @@ if __name__ == "__main__":
     # x1 = np.array([1., 2.2])
     # x2 = np.array([1.1, 2.1])
     # print(par_dominance(x1, x2))
-
-    print()

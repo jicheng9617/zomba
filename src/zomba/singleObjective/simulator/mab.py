@@ -1,6 +1,6 @@
 import numpy as np 
 
-from ...core import MABEnv
+from zomba.core import MABEnv
 
 class MABSimulator(MABEnv): 
     def __init__(self, 
@@ -23,14 +23,15 @@ class MABSimulator(MABEnv):
 
     def reset(self, 
               num_arm: int=None, 
+              seed: int = None, 
               ) -> None: 
         
         if num_arm is not None: self.K = num_arm
+        np.random.seed(seed)
         self.p = np.random.uniform(size=self.K) 
         self._eval_optimal()
 
     def _eval_optimal(self):
-
         self.opt_ind = np.argmax(self.p) 
         
     def get_regret(self, arm: int) -> float: 
@@ -42,7 +43,6 @@ class MABSimulator(MABEnv):
             return self._eval_regret_arm(arm) 
     
     def _eval_regret_arm(self, arm: int) -> float: 
-
         return self.optimal_reward - self.p[arm] 
     
     def get_reward(self, arm: int) -> float:
@@ -58,7 +58,6 @@ class MABSimulator_Bernoulli(MABSimulator):
         super(MABSimulator_Bernoulli, self).__init__(num_arm=num_arm)
 
     def get_reward(self, arm: int):
-        
         return 1 if np.random.rand() < self.p[arm] else 0
         
         

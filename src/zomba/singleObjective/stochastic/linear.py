@@ -2,15 +2,17 @@ import numpy as np
 
 from zomba.core import contextMABAgent
 
-class slbUCB(contextMABAgent): 
+class SLBUCB(contextMABAgent): 
     
     def __init__(self, 
                  num_dim: int, 
                  num_arm: int = None, 
                  lamda: float = 1, 
                  delta: float = 0.05, 
+                 rarely_switch: bool = False, 
                  ) -> None:
         super().__init__(num_dim, num_arm, lamda, delta)
+        self.rarely_switch = rarely_switch
     
     def _eval_uncertainty(self, context): 
         gamma_t = np.sqrt(self.d * np.log((1 + self.t/self.lamda) / self.delta)) + np.sqrt(self.lamda)
@@ -25,6 +27,7 @@ class slbUCB(contextMABAgent):
         super().reset(num_arm=num_arm, num_dim=num_dim)
         
         self.V = self.lamda * np.eye(self.d) 
+        self.V_tau = np.copy(self.V)
         self.V_inv = 1 / self.lamda * np.eye(self.d) 
         self.theta = np.zeros((self.d,)) 
     
@@ -58,16 +61,22 @@ class slbUCB(contextMABAgent):
                ):
         super().update(action, reward, context)
         self.V += np.outer(context[action], context[action]) 
-        self.V_inv = np.linalg.inv(self.V) 
+        # rarely switching OFUL algorithm 
+        if self.rarely_switch: 
+            if np.linalg.det(self.V) > (1 + 1.) * np.linalg.det(self.V_tau):
+                self.V_tau = np.copy(self.V)
+                self.V_inv = np.linalg.pinv(self.V) 
+        else: 
+            self.V_inv = np.linalg.pinv(self.V)
         self.theta = self.V_inv @ self.context_his.T @ self.reward_his.T
         
     
 if __name__ == "__main__": 
     print() 
-    from zomba.singleObjective.simulator import slbSimulator 
-    env = slbSimulator(num_arm=5, num_dim=3) 
+    from zomba.singleObjective.simulator import SLBSimulator 
+    env = SLBSimulator(num_arm=5, num_dim=3) 
     env.reset(verbose=1)
-    alg = slbUCB(num_arm=5, num_dim=3) 
+    alg = SLBUCB(num_arm=5, num_dim=3, rarely_switch=1) 
     alg.reset()
     cum_reg = 0 
     for _ in range(5000): 

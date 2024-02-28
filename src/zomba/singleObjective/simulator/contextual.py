@@ -1,5 +1,4 @@
 import numpy as np
-from numpy import ndarray  
 
 from zomba.core import contextMABEnv
 
@@ -17,6 +16,12 @@ class contextMABSimulator(contextMABEnv):
     
     def reset(self): 
         raise NotImplementedError("Subclasses should implement this method.") 
+        
+    def observe_context(self) -> np.ndarray:
+        if self.vary_context: 
+            self._sample_context()
+            self._eval_optimal()
+        return self.arm_context
     
     def get_regret(self, arm: any) -> np.ndarray: 
         """
@@ -74,7 +79,7 @@ class contextMABSimulator(contextMABEnv):
     
         
         
-class slbSimulator(contextMABSimulator): 
+class SLBSimulator(contextMABSimulator): 
     def __init__(self, 
                  num_arm: int = None, 
                  num_dim: int = None, 
@@ -102,16 +107,27 @@ class slbSimulator(contextMABSimulator):
         self.vary_context = vary_context 
         self.R = noise_var 
         
-    @property
-    def theta(self): 
-        return self.th 
-        
     def reset(self,
-              num_arm: int = None, 
-              num_dim: int = None, 
-              noise_var: float = None, 
-              verbose: bool = False, 
+              num_arm : int = None, 
+              num_dim : int = None, 
+              noise_var : float = None, 
+              seed: int = None, 
+              verbose : bool = False, 
               ): 
+        """
+        Reset the environment 
+
+        Parameters
+        ----------
+        num_arm : int, optional
+            number of arms, by default None
+        num_dim : int, optional
+            number of dimension, by default None
+        noise_var : float, optional
+            variance proxy of noise, by default None
+        verbose : bool, optional
+            whether to print the information, by default False
+        """
         if num_arm is not None: self.K = num_arm 
         if num_dim is not None: self.d = num_dim 
         if noise_var is not None: self.R = noise_var 
@@ -119,30 +135,27 @@ class slbSimulator(contextMABSimulator):
         assert self.K is not None, "Please assign number of arms!"
         assert self.d is not None, "Please define dimension of arms' context!" 
         
-        self._sample_theta() 
+        self._sample_theta(seed=seed) 
         self._sample_context()
         self._eval_optimal() 
+
         if verbose: self._print_info()
-        
-    def observe_context(self) -> ndarray:
-        if self.vary_context: 
-            self._sample_context()
-            self._eval_optimal()
-        return self.arm_context
     
-    def get_reward(self, arm: int) -> float:
+    def get_reward(self, arm: int) -> np.ndarray:
         if isinstance(arm, np.ndarray):
             return self.expected_rewards[arm] + self._noise(size=len(arm))
         else: 
             return self.expected_rewards[arm] + self._noise(size=None)
 
-    def _sample_theta(self): 
+    def _sample_theta(self, seed): 
+        np.random.seed(seed)
         unitVec = np.random.normal(size=self.d)
         unitVec /= np.linalg.norm(unitVec)
-        self.th = np.random.uniform() ** (1 / self.d) * unitVec
+        np.random.seed(seed)
+        self.theta = np.random.uniform() ** (1 / self.d) * unitVec
             
     def _eval_optimal(self):
-        self.expected_rewards = self.A @ self.th.T
+        self.expected_rewards = self.A @ self.theta.T
         self.opt_arm = np.argmax(self.expected_rewards) 
         
     def _eval_regret_arm(self, arm):
@@ -156,6 +169,6 @@ class slbSimulator(contextMABSimulator):
 
 if __name__ == "__main__": 
     print() 
-    env = slbSimulator(num_arm=100, ) 
-    env.reset(num_dim=7, verbose=1) 
+    env = SLBSimulator(num_arm=100, ) 
+    env.reset(num_dim=7, verbose=1, seed=123456) 
     print(env.get_reward(5))

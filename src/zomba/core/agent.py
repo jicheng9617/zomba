@@ -20,7 +20,7 @@ class MABAgent:
         return self.K
     
     @property 
-    def round_index(self): 
+    def round(self): 
         return self.t 
     
     @property
