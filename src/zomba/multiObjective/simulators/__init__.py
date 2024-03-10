@@ -1,1 +1,2 @@
-from .contextual import moContextMABSimulator
+from .contextual import (moContextMABSimulator,
+                         moSLBSimulator)

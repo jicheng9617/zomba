@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Union
 
 from zomba.core import contextMABEnv
 
@@ -23,7 +24,7 @@ class contextMABSimulator(contextMABEnv):
             self._eval_optimal()
         return self.arm_context
     
-    def get_regret(self, arm: any) -> np.ndarray: 
+    def get_regret(self, arm: Union[int | np.ndarray | list]) -> np.ndarray: 
         """
         Get regrets for arms
 

@@ -56,6 +56,55 @@ def par_non_dominated_sorting(pop: np.ndarray):
 
         if num_d == 0: non_dominate_ind.append(i)
     return np.array(non_dominate_ind)
+        
+def par_dominance(u: np.ndarray, v: np.ndarray) -> bool: 
+    """
+    To judge if u dominates v in Pareto form 
+    in maximization
+
+    Parameters
+    ----------
+    u : np.ndarray
+        _description_
+    v : np.ndarray
+        _description_
+
+    Returns
+    -------
+    bool
+        _description_
+    """
+    for i in range(len(u)): 
+        if v[i] > u[i]: return False
+    
+    if (u==v).all(): return False
+
+    return True
+
+def par_suboptimal_gap(u: np.ndarray, optimals: np.ndarray) -> float: 
+    """
+    Evaluate the Pareto suboptimal gap for u w.r.t. optimals, which measures the minimum value 
+    that by adding it to u such that u is not Pareto dominated by any individuals in optimals.
+
+    Parameters
+    ----------
+    u : np.ndarray
+        objectives 
+    optimals : np.ndarray
+        optimal objectives 
+
+    Returns
+    -------
+    float
+        Pareto suboptimal gap 
+    """
+    psg =  0 
+    optimals = np.atleast_2d(optimals)
+    for v in optimals: 
+        if par_dominance(v, u): 
+            tmp_gap = np.min(v - u)
+            if tmp_gap > psg: psg = tmp_gap 
+    return psg
 
 def lex_dominance(u: np.ndarray, v: np.ndarray, epsilon=1e-6) -> bool: 
     """
@@ -81,30 +130,6 @@ def lex_dominance(u: np.ndarray, v: np.ndarray, epsilon=1e-6) -> bool:
             continue
         else: 
             return False
-        
-def par_dominance(u: np.ndarray, v: np.ndarray) -> bool: 
-    """
-    To judge if u dominates v in Pareto form 
-    in maximization
-
-    Parameters
-    ----------
-    u : np.ndarray
-        _description_
-    v : np.ndarray
-        _description_
-
-    Returns
-    -------
-    bool
-        _description_
-    """
-    for i in range(len(u)): 
-        if v[i] > u[i]: return False
-    
-    if (u==v).all(): return False
-
-    return True
     
 def pc_dominance(u: list, v: list) -> bool: 
     """
@@ -146,6 +171,46 @@ def pc_non_dominated_sorting(pop: list[np.ndarray]):
         if num_d == 0: non_dominate_ind.append(i)
 
     return np.array(non_dominate_ind)
+
+def pc_suboptimal_gap(u: list[np.ndarray], optimals: list[np.ndarray]) -> np.ndarray: 
+    """
+    Evaluate the MPL-PC suboptimality gap between the vector u and vectors optimals
+
+    Parameters
+    ----------
+    u : list[np.ndarray]
+        vector u 
+    optimals : list[np.ndarray]
+        optimal vectors 
+
+    Returns
+    -------
+    np.ndarray
+        MPL-PC suboptimality gap
+    """
+    reg = []
+    optimals = [np.atleast_2d(i) for i in optimals]
+    c = len(optimals) 
+    mc = [i.shape[1] for i in optimals]
+    c_max = np.max(mc)
+    for i in range(len(optimals[0])):
+        v = [j[i] for j in optimals]
+        if pc_dominance(v, u):
+            tmp_reg = np.zeros((c, c_max))
+            for j in range(c): 
+                for k in range(mc[j]):
+                    tmp_reg[j][k] = np.maximum(0, v[j][k]-u[j][k])
+            ind = np.lexsort([tmp_reg[:, o] for o in reversed(range(c_max))])[0]
+            reg.append(tmp_reg[ind])
+
+    if len(reg) == 0: 
+        return np.zeros((c_max))
+    elif len(reg) == 1: 
+        return reg[0]
+    else: 
+        reg = np.vstack(reg)
+        ind = np.lexsort([reg[:, o] for o in reversed(range(c_max))])[0]
+        return reg[ind]
 
 def prior_free_lexi_filter(ucb: np.ndarray, lcb: np.ndarray) -> np.ndarray: 
     """

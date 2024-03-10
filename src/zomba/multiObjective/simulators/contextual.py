@@ -3,8 +3,9 @@ import os
 import pickle
 
 from zomba.multiObjective.utils import (par_non_dominated_sorting, 
-                                        ar_dominance, 
-                                        pc_non_dominated_sorting)
+                                        par_suboptimal_gap,
+                                        pc_non_dominated_sorting,
+                                        pc_suboptimal_gap)
 from zomba.singleObjective.simulator import contextMABSimulator 
 
 
@@ -76,15 +77,15 @@ class moSLBSimulator(moContextMABSimulator):
         if num_dim is not None: self.d = num_dim 
         if num_obj is not None: self.m = num_obj 
         if noise_var is not None: self.R = noise_var 
-        
+        # check the setting
         assert self.K is not None, "Please assign number of arms!"
         assert self.d is not None, "Please define dimension of arms' context!" 
-        assert self.m is not None, "Please set number of objectives!"
-
+        assert self.m is not None, "Please set number of objectives!" 
+        if (self.obj_type.lower() in 'mpl-pc'+'mpl-pl') and self.priority is None: 
+            raise NotImplementedError('Please assign the preference relationship between objectives!')
+        # initialize
         self._sample_thetas(seed=seed)
         self._sample_context()
-        # self._expected_reward()
-        # self._optimal_arms()
         self._eval_optimal()
         if verbose: self.print_info()
 
@@ -100,33 +101,39 @@ class moSLBSimulator(moContextMABSimulator):
         else: 
             return self.expected_rewards[arm] + self._noise(size=1).squeeze()
 
-    def _sample_thetas(self, seed) -> None: 
+    def _sample_thetas(self, seed: int) -> None: 
         """
         Generate the unknown parameters from unit sphere
         """
+        np.random.seed(seed) # seed 
         self.thetas = np.zeros(shape=(self.m,self.d))
         for j in range(self.m): 
-            np.random.seed(seed)
             unitVec = np.random.normal(size=self.d)
             unitVec /= np.linalg.norm(unitVec)
-            np.random.seed(seed)
             self.thetas[j] = np.random.uniform() ** (1 / self.d) * unitVec
 
     def _eval_optimal(self):
         self.expected_rewards = self.A @ self.thetas.T 
         # round the expected rewards if the priority type is 'MPL-PC'
-        if self.obj_type == 'MPL-PC': self.expected_rewards = self.expected_rewards.round(decimals=2)
+        if self.obj_type.lower() == 'mpl-pc': 
+            self.expected_rewards = self.expected_rewards.round(decimals=1)
         # evaluate the optimal indexs
-        match self.obj_type:
-            case 'Pareto': 
+        match self.obj_type.lower():
+            case 'pareto': 
                 self.opt_arm = par_non_dominated_sorting(self.expected_rewards)
-            case 'Lexicographic': 
+            case 'lexicographic': 
                 self.opt_arm = None
-            case 'MPL-PC': 
+            case 'mpl-pc': 
                 tmp_y = [self.expected_rewards[:,ind] for ind in self.priority]
                 self.opt_arm = pc_non_dominated_sorting(tmp_y)
-            case 'MPL-PL': 
-                tmp_y = [self.expected_rewards[:,ind] for ind in self.priority]
+            case 'mpl-pl': 
+                opt_arm = [np.arange(self.num_arm)]
+                # evaluate the optimal arms for each priority level 
+                for i in range(len(self.priority)): 
+                    opt_arm.append(
+                        opt_arm[-1][par_non_dominated_sorting(self.expected_rewards[opt_arm[-1]][:, self.priority[i]])]
+                    )
+                self.opt_arm = opt_arm[1:]
 
     def _noise(self, size: int): 
         return np.random.normal(loc=0.0, scale=self.R, size=(size, self.m))
@@ -145,50 +152,48 @@ class moSLBSimulator(moContextMABSimulator):
         float
             regret gap 
         """
-        arm_y = np.matmul(arm, self.th.T)
-        psg = 0
-        for j in range(len(self.opt_ind)): 
-            opt_y = self.opt_y[j]
-            if par_dominance(opt_y, arm_y): 
-                tmp = np.min(opt_y-arm_y)
-                if tmp > psg: psg = tmp
-        return psg
+        arm_y = self.expected_rewards[arm]
 
-    def _eval_regret(self) -> None: 
-        """
-        Evaluate the regret for all the arms.
-        """
-        self.reg = np.vstack([self._eval_regret_arm(self.A[i]) for i in range(self.get_num_arm)])
-
-    def regret(self, arm: np.ndarray) -> float: 
-        """
-        Return the regret for the chosen arm.
-
-        Parameters
-        ----------
-        arm : np.ndarray
-            arm context or index
-
-        Returns
-        -------
-        float (or np.ndarray in pc and pl)
-            the regret value(s)
-        """
-        if not isinstance(arm, int): 
-            ind = np.where(np.isclose(self.A, arm).all(axis=1))
-        else: 
-            ind = arm
-        return self.reg[ind]
+        match self.obj_type.lower(): 
+            case 'pareto': 
+                # evaluate the Pareto suboptimal gap for the arm 
+                gap = par_suboptimal_gap(arm_y, self.expected_rewards[self.opt_arm])
+            case 'lexicographic': 
+                pass 
+            case 'mpl-pc': 
+                arm_y = [arm_y[ind] for ind in self.priority]
+                optimal_y = [self.expected_rewards[self.opt_arm][:, ind] for ind in self.priority]
+                gap = pc_suboptimal_gap(arm_y, optimal_y)
+            case 'mpl-pl': 
+                # gap for MPL-PL order with form [float, ..., float]
+                l = len(self.priority)
+                gap = np.zeros((l, ))
+                for i in range(l): 
+                    delta_x = par_suboptimal_gap(arm_y[self.priority[i]], self.expected_rewards[self.opt_arm[i]][:, self.priority[i]])
+                    if delta_x > 0: 
+                        gap[i] = delta_x 
+                        # priority based regret 
+                        break 
+        return gap
 
     def print_info(self): 
         """
         Print the information of the environment. 
         """
         print(
-            {'#objective': self.m, 
-             '#dimension': self.d, 
-             '#arms': self.A.shape[0], 
-             '#optimal arms': len(self.opt_ind), 
-             'Regret for each arm': self.reg
-             }
+            f"# objective: {self.m}, \n# dimension: {self.d},\n# arms: {self.num_arm},\n# optimal arms: {self.opt_arm},\nRegret for each arm: {[self._eval_regret_arm(i) for i in range(self.num_arm)]},\nExpected rewards for each arm: \n{self.expected_rewards}"
         )
+        print(f"Arms' context: {self.A}")
+
+
+
+if __name__ == "__main__": 
+    print() 
+    import numpy as np 
+    from zomba.multiObjective.simulators import moSLBSimulator
+    K = 100
+    d = 8 
+    m = 4
+    priority = [[0,1], [2,3]]
+    env = moSLBSimulator(K, d, m, obj_preference='MPL-PC', priority=priority)
+    env.reset(verbose=1, seed=1234)
