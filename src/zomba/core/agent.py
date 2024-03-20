@@ -1,5 +1,5 @@
 import numpy as np
-
+from typing import Union
 
 
 class MABAgent: 
@@ -31,6 +31,10 @@ class MABAgent:
     def reward_his(self): 
         return np.array(self.reward_list)
     
+    @property
+    def action_his(self): 
+        return np.array(self.reward_list)
+    
     def reset(self, 
               num_arm: int = None, 
               ) -> None:
@@ -40,20 +44,28 @@ class MABAgent:
         self.t = 0
         self.counts = np.zeros(self.K)
         self.reward_list = []
-        self.action_his = []
+        self.action_list = []
 
     def take_action(self, 
                     ) -> int: 
         return np.random.randint(0, self.K)
 
     def update(self, 
-               action: int, 
-               reward: float, 
-               ): 
+               info: Union[int, float]
+               ) -> None: 
+        """
+        Update parameters in the algorithm.
+
+        Parameters
+        ----------
+        info : Union[int, float]
+            contains variables of action and reward
+        """
+        action, reward = info
         self.t += 1 
         self.counts[action] += 1
         self.reward_list.append(reward)
-        self.action_his.append(action)
+        self.action_list.append(action)
         
      
         
@@ -91,12 +103,19 @@ class contextMABAgent(MABAgent):
         return super().take_action() 
     
     def update(self, 
-               action: int, 
-               reward: float, 
-               context: np.ndarray, 
-               ):
-        super().update(action, reward)
-        self.X_list.append(context[action])
+               info: Union[int, float, np.ndarray]
+               ) -> None:
+        """
+        Update parameters of the algorithm.
+
+        Parameters
+        ----------
+        info : Union[int, float, np.ndarray]
+            information containing the last chosen action, observed reward, and the context for that arm
+        """
+        action, reward, context = info
+        super().update((action, reward))
+        self.X_list.append(context)
         
     
         

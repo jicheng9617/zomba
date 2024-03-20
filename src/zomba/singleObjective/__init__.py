@@ -1,1 +1,1 @@
-from .stochastic.experimenter import experimenter
+from .stochastic.experimenter import experimenter, plot_regrets
