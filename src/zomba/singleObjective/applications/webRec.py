@@ -1,11 +1,10 @@
 import numpy as np
 from zomba.core import contextMABEnv 
 
-# load dataset 
-data = np.loadtxt("./data/dataset.txt")
+
 
 class webRecEnv(contextMABEnv): 
-    def __init__(self, data: np.ndarray = data) -> None:
+    def __init__(self, data: np.ndarray) -> None:
         arms, rewards, contexts = data[:,0], data[:,1], data[:,2:]
         self.arms = arms.astype(int)
         self.rewards = rewards.astype(float)

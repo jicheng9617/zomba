@@ -33,7 +33,7 @@ class MABAgent:
     
     @property
     def action_his(self): 
-        return np.array(self.reward_list)
+        return np.array(self.action_list)
     
     def reset(self, 
               num_arm: int = None, 
