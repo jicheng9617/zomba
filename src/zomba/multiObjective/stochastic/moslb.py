@@ -3,12 +3,15 @@ import numpy as np
 from zomba.multiObjective.utils import par_non_dominated_sorting
 
 class moslb:
-    def __init__(self, 
-        num_dim:int, 
-        num_obj:int, 
-        lamda:float=1.,
-        delta:float=.05
-        ) -> None:
+    def __init__(self,
+                 num_dim: int,
+                 num_obj: int,
+                 lamda: float=1.,
+                 delta: float=.05,
+                 opt_type: str = 'max', 
+                 obj_preference: str = 'scalarization',
+                 sclarization_type = 'weighted_sum',
+                 ) -> None:
         """
         Multi-objective stochastic linear bandit
         UCB algorithm considering Pareto order
@@ -28,6 +31,9 @@ class moslb:
         self.m = num_obj
         self.lamda = lamda
         self.delta = delta
+        self.opt_type = opt_type
+        self.obj_preference = obj_preference
+        self.sclarization_type = sclarization_type
 
     @property
     def num_obj(self) -> int:
@@ -84,7 +90,8 @@ class moslb:
             estimated variance
         """
         assert arm.ndim == 1
-        gamma_t = np.sqrt(self.d * np.log(self.m * (1 + self.t) / self.delta)) + 1
+        # gamma_t = np.sqrt(self.d * np.log(self.m * (1 + self.t) / self.delta)) + 1 # scalars in theoretical analysis
+        gamma_t = 1. 
         w_t = gamma_t * np.sqrt(np.dot(arm, self.V_inv).dot(arm))
         return w_t
 
@@ -111,8 +118,9 @@ class moslb:
         return self.estimate_reward(arm) - alpha*self.estimate_uncertainty(arm)
 
     def take_action(self, 
-        arm:np.ndarray, 
-        alpha: float=1.
+        context:np.ndarray, 
+        weight_vector: np.ndarray = None, 
+        alpha: float = 1.
         ) -> int: 
         """
         Take an action based on P-UCB algorithm
@@ -129,12 +137,19 @@ class moslb:
         int
             index of the selected arm
         """
-        arm = np.atleast_2d(arm)
+        arm = np.atleast_2d(context)
         ucb = np.vstack([self._eval_ucb(arm=arm[i],alpha=alpha) for i in range(arm.shape[0])])
-        self.opt_ind = par_non_dominated_sorting(ucb)
-        return np.random.choice(self.opt_ind, size=1).item()
+        match self.obj_preference.lower():
+            case 'pareto': 
+                self.opt_ind = par_non_dominated_sorting(ucb)
+                return np.random.choice(self.opt_ind, size=1).item()
+            case 'scalarization': 
+                assert weight_vector is not None
+                metric = self._scalarization(ucb, weight_vector=weight_vector)
+                return np.argmax(metric) if self.opt_type.lower() == 'max' else np.argmin(metric)
 
-    def update_params(self, arm_context: np.ndarray, reward: np.ndarray) -> None: 
+    def update(self, 
+               info) -> None: 
         """
         Update the parameters
 
@@ -145,6 +160,7 @@ class moslb:
         reward : np.ndarray
             observed reward of the arm
         """
+        action, reward, arm_context = info
         self.t += 1
         self.X_list.append(arm_context) 
         self.Y_list.append(reward)
@@ -154,3 +170,64 @@ class moslb:
         self.V_inv = np.linalg.inv(self.V) 
         for i in range(self.m): 
             self.theta[i] = self.V_inv @ X.T @ Y[:, i]
+
+    def _scalarization(self, y, weight_vector): 
+        y = np.atleast_2d(y)
+        match self.sclarization_type.lower(): 
+            case 'weighted_sum': 
+                return np.sum(y * weight_vector, axis=1)
+            
+
+if __name__ == '__main__': 
+    print() 
+    import numpy as np 
+
+    from zomba.multiObjective.stochastic import MONeural, moslb
+    from zomba.multiObjective.utils import runif_in_simplex
+    from pymoo.problems import get_problem 
+
+    from zomba.multiObjective.simulators import moContextMABSimulator
+
+    class mooBandits(moContextMABSimulator): 
+        def __init__(self, num_arm: int = None, num_dim: int = None, num_obj: int = None, arm_context: np.ndarray = None, obj_preference: str = 'scalarization', sclarization_type='weighted_sum', vary_context: bool = False, noise_var: float = 0.1) -> None:
+            super().__init__(num_arm, num_dim, num_obj, arm_context, obj_preference, sclarization_type, vary_context, noise_var)
+        
+        def _sample_context(self):
+            self.A = np.random.rand(self.K, self.d)
+        
+        def _eval_expected_reward(self, arm):
+            return p.evaluate(arm)
+    K = 10
+
+    p = get_problem("zdt6")
+    d = p.n_var
+    m = p.n_obj
+    env = mooBandits(
+        num_arm=K, 
+        num_dim=d, 
+        num_obj=m, 
+        vary_context=1,
+    )
+    moslb_ucb = moslb(
+        num_dim=d, 
+        num_obj=m, 
+        lamda=1., 
+        delta=.01, 
+        opt_type='min', 
+    )
+    env.reset()
+    moslb_ucb.reset()
+    T = 1000 
+    tot_reg = 0
+    tot_reg_his = []
+    for t in range(T): 
+        # sample preference vector 
+        weight_vector = runif_in_simplex(m)
+        X = env.observe_context()
+        a_t = moslb_ucb.take_action(context=X, alpha=0.01, weight_vector=weight_vector)
+        reg_t = env.get_regret(arm=a_t, weight_vector=weight_vector).item()
+        r_t = env.get_reward(arm=a_t)
+        moslb_ucb.update(arm_context=X[a_t], reward=r_t)
+        print(f"Round: {t}, instantaneous regret: {reg_t:f}.")
+        tot_reg += reg_t
+        tot_reg_his.append(tot_reg)

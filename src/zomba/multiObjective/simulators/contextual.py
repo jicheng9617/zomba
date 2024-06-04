@@ -15,13 +15,118 @@ class moContextMABSimulator(contextMABSimulator):
                  num_dim: int = None, 
                  num_obj: int = None, 
                  arm_context: np.ndarray = None,
+                 obj_preference: str = 'scalarization', 
+                 sclarization_type = 'weighted_sum',
+                 opt_type: str = 'max', 
+                 vary_context: bool = False, 
+                 noise_var: float = 0.1, 
                  ) -> None:
         super().__init__(num_arm, num_dim, arm_context)
         self.m = num_obj 
+        self.obj_preference = obj_preference
+        self.sclarization_type = sclarization_type
+        self.opt_type = opt_type
+        self.vary_context = vary_context 
+        self.R = noise_var 
 
     @property 
     def num_obj(self): 
         return self.m 
+    
+    def reset(self, 
+              num_arm: int = None, 
+              num_dim: int = None, 
+              num_obj: int = None, 
+              noise_var : float = None, 
+              seed: int = None, 
+              verbose: bool = False,
+              ) -> None: 
+        """
+        Initialize the environment and sample the unknown parameters randomly. 
+        """
+        if num_arm is not None: self.K = num_arm 
+        if num_dim is not None: self.d = num_dim 
+        if num_obj is not None: self.m = num_obj 
+        if noise_var is not None: self.R = noise_var 
+        # check the setting
+        assert self.K is not None, "Please assign number of arms!"
+        assert self.d is not None, "Please define dimension of arms' context!" 
+        assert self.m is not None, "Please set number of objectives!" 
+        if (self.obj_preference.lower() in 'mpl-pc'+'mpl-pl') and self.priority is None: 
+            raise NotImplementedError('Please assign the preference relationship between objectives!')
+        self._sample_context()
+        
+    def observe_context(self) -> np.ndarray:
+        if self.vary_context: 
+            self._sample_context()
+        return self.arm_context
+    
+    def _eval_optimal(self, weight_vector=None):
+        self.expected_rewards = self._h(self.A)
+        # evaluate the optimal indexs
+        match self.obj_preference.lower():
+            case 'pareto': 
+                self.opt_arm = par_non_dominated_sorting(self.expected_rewards)
+            case 'scalarization': 
+                self.opt_arm = np.argmax(self._scalarization(self.expected_rewards, weight_vector)) if self.opt_type.lower() == 'max' else np.argmin(self._scalarization(self.expected_rewards, weight_vector))
+
+    def  _eval_regret_arm(self, arm, weight_vector):
+        # get the expected reward for the arm
+        arm_y = self._h(arm)
+        # different regret type w.r.t. the preference setting
+        match self.obj_preference.lower():
+            case 'pareto': 
+                # evaluate the Pareto suboptimal gap for the arm 
+                return par_suboptimal_gap(arm_y, self.expected_rewards[self.opt_arm])
+            case 'scalarization': 
+                return self._scalarization(arm_y, weight_vector) - self._scalarization(self.expected_rewards[self.opt_arm], weight_vector) if self.opt_type.lower() == 'min' else self._scalarization(self.expected_rewards[self.opt_arm], weight_vector) - self._scalarization(arm_y, weight_vector)
+    
+    def _noise(self, size: int): 
+        return np.random.normal(loc=0.0, scale=self.R, size=(size, self.m))
+    
+    def get_reward(self, arm: int) -> np.ndarray:
+        if isinstance(arm, np.ndarray):
+            return self._h(arm) + self._noise(size=len(arm))
+        else: 
+            return self._h(arm) + self._noise(size=1).squeeze()
+        
+    def _scalarization(self, 
+                       y: np.ndarray, 
+                       weight_vector: np.ndarray) -> np.ndarray: 
+        y = np.atleast_2d(y)
+        match self.sclarization_type.lower(): 
+            case 'weighted_sum': 
+                return np.sum(y*weight_vector, axis=1).reshape(-1, )
+    
+    def get_regret(self, 
+                   arm: int | np.ndarray | list, 
+                   weight_vector: np.ndarray = None) -> np.ndarray:
+        """_summary_
+
+        Parameters
+        ----------
+        arm : int | np.ndarray | list
+            _description_
+        weight_vector : np.ndarray
+            _description_
+
+        Returns
+        -------
+        np.ndarray
+            _description_
+        """
+        self._eval_optimal(weight_vector=weight_vector)
+        if self.obj_preference.lower() == 'scalarization' and weight_vector is None:
+            raise NotImplementedError('Please assign the preference vector between objectives!')
+        if isinstance(arm, list): arm = np.array(arm)
+        if isinstance(arm, np.ndarray): 
+            return np.array(
+                [self._eval_regret_arm(a_i, weight_vector) for a_i in arm]
+            )
+        else: 
+            return self._eval_regret_arm(arm, weight_vector) 
+        
+
 
 
 class moSLBSimulator(moContextMABSimulator):
@@ -57,7 +162,7 @@ class moSLBSimulator(moContextMABSimulator):
         """
         super().__init__(num_arm, num_dim, num_obj, arm_context)
         self.m = num_obj
-        self.obj_type = obj_preference
+        self.obj_preference = obj_preference
         self.vary_context = vary_context 
         self.R = noise_var 
         self.priority = priority
@@ -81,7 +186,7 @@ class moSLBSimulator(moContextMABSimulator):
         assert self.K is not None, "Please assign number of arms!"
         assert self.d is not None, "Please define dimension of arms' context!" 
         assert self.m is not None, "Please set number of objectives!" 
-        if (self.obj_type.lower() in 'mpl-pc'+'mpl-pl') and self.priority is None: 
+        if (self.obj_preference.lower() in 'mpl-pc'+'mpl-pl') and self.priority is None: 
             raise NotImplementedError('Please assign the preference relationship between objectives!')
         # initialize
         self._sample_thetas(seed=seed)
@@ -115,10 +220,10 @@ class moSLBSimulator(moContextMABSimulator):
     def _eval_optimal(self):
         self.expected_rewards = self.A @ self.thetas.T 
         # round the expected rewards if the priority type is 'MPL-PC'
-        if self.obj_type.lower() == 'mpl-pc': 
+        if self.obj_preference.lower() == 'mpl-pc': 
             self.expected_rewards = self.expected_rewards.round(decimals=1)
         # evaluate the optimal indexs
-        match self.obj_type.lower():
+        match self.obj_preference.lower():
             case 'pareto': 
                 self.opt_arm = par_non_dominated_sorting(self.expected_rewards)
             case 'lexicographic': 
@@ -154,7 +259,7 @@ class moSLBSimulator(moContextMABSimulator):
         """
         arm_y = self.expected_rewards[arm]
 
-        match self.obj_type.lower(): 
+        match self.obj_preference.lower(): 
             case 'pareto': 
                 # evaluate the Pareto suboptimal gap for the arm 
                 gap = par_suboptimal_gap(arm_y, self.expected_rewards[self.opt_arm])
@@ -189,11 +294,30 @@ class moSLBSimulator(moContextMABSimulator):
 
 if __name__ == "__main__": 
     print() 
-    import numpy as np 
-    from zomba.multiObjective.simulators import moSLBSimulator
-    K = 100
-    d = 8 
-    m = 4
-    priority = [[0,1], [2,3]]
-    env = moSLBSimulator(K, d, m, obj_preference='MPL-PC', priority=priority)
-    env.reset(verbose=1, seed=1234)
+    from pymoo.problems import get_problem 
+
+    from zomba.multiObjective.simulators import moContextMABSimulator
+
+    class mooBandits(moContextMABSimulator): 
+        def __init__(self, num_arm: int = None, num_dim: int = None, num_obj: int = None, arm_context: np.ndarray = None, obj_preference: str = 'scalarization', sclarization_type='weighted_sum', vary_context: bool = False, noise_var: float = 0.1) -> None:
+            super().__init__(num_arm, num_dim, num_obj, arm_context, obj_preference, sclarization_type, vary_context, noise_var)
+        
+        def _sample_context(self):
+            self.A = np.random.rand(self.K, self.d)
+        
+        def _eval_expected_reward(self, arm):
+            return p.evaluate(arm)
+        
+    K = 10
+
+    p = get_problem("zdt6")
+    d = p.n_var
+    m = p.n_obj
+    env = mooBandits(
+        num_arm=K, 
+        num_dim=d, 
+        num_obj=m, 
+        vary_context=1,
+    )
+    env.reset()
+    env.get_regret(3, weight_vector=[.2, .8])

@@ -67,6 +67,19 @@ class contextMABSimulator(contextMABEnv):
     def _eval_regret_arm(self, arm):
         raise NotImplementedError("Subclasses should implement this method.") 
     
+    def _eval_expected_reward(self, arm): 
+        raise NotImplementedError("Subclasses should implement this method.") 
+    
+    def _h(self,
+           arm: list | int | np.ndarray): 
+        if isinstance(arm, int) or isinstance(arm, np.integer): 
+            return self._eval_expected_reward(arm=self.A[arm])
+        elif isinstance(arm, list): 
+            return np.vstack([self._eval_expected_reward(arm=self.A[i]) for i in arm]).squeeze()
+        elif isinstance(arm, np.ndarray): 
+            arm = np.atleast_2d(arm) 
+            return np.vstack([self._eval_expected_reward(arm=a) for a in arm])
+    
     def _print_info(self): 
         """
         Print the information of the environment. 
