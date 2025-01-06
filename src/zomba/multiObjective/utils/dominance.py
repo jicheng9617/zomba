@@ -130,6 +130,24 @@ def lex_dominance(u: np.ndarray, v: np.ndarray, epsilon=1e-6) -> bool:
             continue
         else: 
             return False
+        
+def lex_dominated_sorting(pop: np.ndarray, threshold: np.ndarray | list = None):
+    
+    if threshold is None: threshold = 1e-10 * np.ones((pop.shape[1],))
+    
+    candidates = pop
+    candidate_indices = np.arange(pop.shape[0])  
+    
+    for i in range(pop.shape[1]):
+        max_value = np.max(candidates[:, i])
+        mask = np.abs(candidates[:, i] - max_value) <= threshold[i]
+        candidates = candidates[mask]
+        candidate_indices = candidate_indices[mask] 
+        
+        if len(candidates) == 1:
+            break
+    
+    return candidate_indices
     
 def pc_dominance(u: list, v: list) -> bool: 
     """
@@ -212,44 +230,7 @@ def pc_suboptimal_gap(u: list[np.ndarray], optimals: list[np.ndarray]) -> np.nda
         ind = np.lexsort([reg[:, o] for o in reversed(range(c_max))])[0]
         return reg[ind]
 
-def prior_free_lexi_filter(ucb: np.ndarray, lcb: np.ndarray) -> np.ndarray: 
-    """
-    filter the optimal arms based on transitive closure relation of the linked relation  
 
-    Parameters
-    ----------
-    ucb : np.ndarray
-        upper confidence bound of the arms
-    lcb : np.ndarray
-        lower confidence bound of the arms
-
-    Returns
-    -------
-    np.ndarray
-        index of the optimal arms
-    """
-    K,mc = ucb.shape
-    opt_ind = [np.arange(K)]
-
-    for i in range(mc): 
-        x_i = opt_ind[i][np.argmax(ucb[opt_ind[i], i])]
-        opt_ind.append(
-            chain_filter(x_i,opt_ind[i],ucb[:, i],lcb[:, i])
-        )
-    return opt_ind[-1]
-
-def chain_filter(arm, D1, u_t, l_t):
-    pre_results = []
-    results = [arm]
-    lowest = l_t[arm]
-
-    while len(results) != len(pre_results):
-        pre_results = copy.deepcopy(results)
-        for i in D1:
-            if u_t[i] >= lowest and i not in results:
-                results.append(i)
-                lowest = np.min([lowest, l_t[i]])
-    return np.array(results)
 
 
 if __name__ == "__main__": 

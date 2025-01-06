@@ -1,5 +1,6 @@
 from .agent import (MABAgent, 
-                    contextMABAgent,)
+                    contextMABAgent,
+                    moMABAgent)
 
 from .environment import (MABEnv,
                           contextMABEnv)

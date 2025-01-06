@@ -1,8 +1,8 @@
 from zomba.multiObjective.utils.dominance import (par_non_dominated_sorting, par_dominance, par_suboptimal_gap, 
                                                   pc_non_dominated_sorting, pc_dominance, pc_suboptimal_gap, 
-                                                  lex_dominance)
+                                                  lex_dominance, lex_dominated_sorting)
 
-from .utils import runif_in_simplex
+from .utils import runif_in_simplex, prior_free_lexi_filter, max_filter
 
 from .transformation import StandardTransform, BoundTransform
 

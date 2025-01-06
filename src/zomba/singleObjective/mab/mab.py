@@ -135,7 +135,29 @@ class ThompsonSampling(MABAgent):
         self.reward_0[action] += (1 - reward) 
         
 
+class BayesUCB_Gaussian(MABAgent): 
+    def __init__(self, 
+                 num_arm = None, 
+                 mu0: float = 0.0, 
+                 sigma0: float = 1.0, 
+                 sigma: float = 1.0, 
+                 ):
+        super().__init__(num_arm)
+        self.mu0 = mu0 * np.ones(self.K) 
+        self.sigma0 = sigma0  # prior distribution with N(mu0, sigma0 ** 2 I_K)
+        self.sigma = sigma # Gausian noise
+        
+    def take_action(self, 
+                    delta: float = 0.01,
+                    ):
+        sigma2 = np.square(self.sigma)
+        sigma02 = np.square(self.sigma0)
+        post_var = 1.0 / (1.0 / sigma02 + self.counts / sigma2)
+        post_mean = post_var * (self.mu0 / sigma02 + (self.mean_reward*self.counts) / sigma2)
 
+        # posterior UCBs
+        self.mu = post_mean + np.sqrt(2 * np.log(1 / delta) * post_var)
+        return np.argmax(self.mu)
 
 
 

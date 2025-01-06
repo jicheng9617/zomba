@@ -28,12 +28,12 @@ class MABAgent:
         return np.sum(self.counts)
     
     @property
-    def reward_his(self): 
-        return np.array(self.reward_list)
+    def reward_history(self): 
+        return np.array(self._reward_list)
     
     @property
-    def action_his(self): 
-        return np.array(self.action_list)
+    def action_history(self): 
+        return np.array(self._action_list)
     
     def reset(self, 
               num_arm: int = None, 
@@ -43,8 +43,9 @@ class MABAgent:
         assert self.K is not None, "Please assign the number of arms!"
         self.t = 0
         self.counts = np.zeros(self.K)
-        self.reward_list = []
-        self.action_list = []
+        self.mean_reward = np.zeros((self.K,))
+        self._reward_list = []
+        self._action_list = []
 
     def take_action(self, 
                     ) -> int: 
@@ -63,10 +64,31 @@ class MABAgent:
         """
         action, reward = info
         self.t += 1 
+        self.mean_reward[action] = (self.mean_reward[action] * self.counts[action] + reward) / (self.counts[action] + 1)
         self.counts[action] += 1
-        self.reward_list.append(reward)
-        self.action_list.append(action)
+        self._reward_list.append(reward)
+        self._action_list.append(action)
         
+        
+class moMABAgent(MABAgent): 
+    def __init__(self, 
+                 num_arm = None, 
+                 num_obj = None, 
+                 ) -> None:
+        super().__init__(num_arm)
+        self.m = num_obj
+        
+    @property
+    def num_obj(self): 
+        return self.m
+    
+    def reset(self, 
+              num_arm = None, 
+              num_obj: int = None, 
+              ) -> None:
+        super().reset(num_arm)
+        if num_obj is not None: self.m = num_obj
+        self.mean_reward = np.zeros((self.K, self.m))
      
         
 class contextMABAgent(MABAgent): 
