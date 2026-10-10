@@ -20,3 +20,8 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+# Tools
+.pytest_cache/
+
+# Experiment logs
+experiments/**/results/*.log
