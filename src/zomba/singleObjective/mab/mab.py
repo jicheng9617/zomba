@@ -106,7 +106,6 @@ class upperConfidenceBound(MABAgent):
         self.estimates[action] += 1. / (self.counts[action] + 1) * (reward - self.estimates[action])
 
 
-
 class ThompsonSampling(MABAgent): 
     def __init__(self, 
                  num_arm: int = None, 
@@ -149,6 +148,7 @@ class BayesUCB_Gaussian(MABAgent):
         
     def take_action(self, 
                     delta: float = 0.01,
+                    alpha: float = 1.,
                     ):
         sigma2 = np.square(self.sigma)
         sigma02 = np.square(self.sigma0)
@@ -156,7 +156,7 @@ class BayesUCB_Gaussian(MABAgent):
         post_mean = post_var * (self.mu0 / sigma02 + (self.mean_reward*self.counts) / sigma2)
 
         # posterior UCBs
-        self.mu = post_mean + np.sqrt(2 * np.log(1 / delta) * post_var)
+        self.mu = post_mean + np.sqrt(2 * np.log(1 / delta) * post_var) / alpha
         return np.argmax(self.mu)
 
 

@@ -1,3 +1,5 @@
+# src/zomba/singleObjective/simulators/contextual.py
+
 import numpy as np
 from typing import Union
 
@@ -70,7 +72,7 @@ class contextMABSimulator(contextMABEnv):
     def _eval_expected_reward(self, arm): 
         raise NotImplementedError("Subclasses should implement this method.") 
     
-    def _h(self,
+    def _reward_func(self,
            arm: list | int | np.ndarray): 
         if isinstance(arm, int) or isinstance(arm, np.integer): 
             return self._eval_expected_reward(arm=self.A[arm])
@@ -91,9 +93,8 @@ class contextMABSimulator(contextMABEnv):
             [round(self._eval_regret_arm(i),4) for i in range(self.num_arm)]
             ))
     
-        
-        
-class SLBSimulator(contextMABSimulator): 
+
+class LinearSimulator(contextMABSimulator): 
     def __init__(self, 
                  num_arm: int = None, 
                  num_dim: int = None, 
@@ -183,6 +184,6 @@ class SLBSimulator(contextMABSimulator):
 
 if __name__ == "__main__": 
     print() 
-    env = SLBSimulator(num_arm=100, ) 
+    env = LinearSimulator(num_arm=100, ) 
     env.reset(num_dim=7, verbose=1, seed=123456) 
     print(env.get_reward(5))

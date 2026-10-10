@@ -1,9 +1,13 @@
 import numpy as np 
 
-from zomba.multiObjective.utils import par_non_dominated_sorting
+from zomba.core import moContextMABAgent
+from zomba.multiObjective.utils import par_non_dominated_sorting, max_filter
 
-class moslb:
+
+
+class moslb(moContextMABAgent):
     def __init__(self,
+                 num_arm: int, 
                  num_dim: int,
                  num_obj: int,
                  lamda: float=1.,
@@ -27,38 +31,25 @@ class moslb:
         delta : float, optional 
             confidence level value, by default 0.05
         """
-        self.d = num_dim
-        self.m = num_obj
-        self.lamda = lamda
-        self.delta = delta
+        super().__init__(num_dim=num_dim, 
+                         num_obj=num_obj, 
+                         num_arm=num_arm, 
+                         lamda=lamda, 
+                         delta=delta)
         self.opt_type = opt_type
         self.obj_preference = obj_preference
         self.sclarization_type = sclarization_type
-
-    @property
-    def num_obj(self) -> int:
-        return self.m
-    
-    @property
-    def num_dim(self) -> int: 
-        return self.d
-    
-    @property
-    def optimal_arms(self) -> np.ndarray: 
-        return self.opt_ind
 
     def reset(self) -> None: 
         """
         Initialize the parameters 
         """
-        self.t = 1
-        self.X_list = [] 
-        self.Y_list = [] 
+        super().reset()
         self.V = self.lamda * np.eye(self.d) 
         self.theta = np.zeros((self.m, self.d))
         self.V_inv = 1/self.lamda * self.V 
 
-    def estimate_reward(self, arm:np.ndarray) -> float: 
+    def estimate_reward(self, arm: np.ndarray) -> float: 
         """
         Estimate the expected reward for an arm
 
@@ -104,7 +95,7 @@ class moslb:
         np.ndarray
             upper confidence bound of the estimated reward
         """
-        return self.estimate_reward(arm) + alpha*self.estimate_uncertainty(arm)
+        return self.estimate_reward(arm) + alpha * self.estimate_uncertainty(arm)
 
     def _eval_lcb(self, arm:np.ndarray, alpha: float=1.) -> np.ndarray: 
         """
@@ -115,7 +106,7 @@ class moslb:
         np.ndarray
             lower confidence bound of the estimated reward
         """
-        return self.estimate_reward(arm) - alpha*self.estimate_uncertainty(arm)
+        return self.estimate_reward(arm) - alpha * self.estimate_uncertainty(arm)
 
     def take_action(self, 
         context:np.ndarray, 
@@ -161,15 +152,11 @@ class moslb:
             observed reward of the arm
         """
         action, reward, arm_context = info
-        self.t += 1
-        self.X_list.append(arm_context) 
-        self.Y_list.append(reward)
-        X = np.vstack(self.X_list) 
-        Y = np.vstack(self.Y_list) 
+        super().update(info)
         self.V += np.outer(arm_context, arm_context)
         self.V_inv = np.linalg.inv(self.V) 
         for i in range(self.m): 
-            self.theta[i] = self.V_inv @ X.T @ Y[:, i]
+            self.theta[i] = self.V_inv @ self.context_history.T @ self.reward_history[:, i]
 
     def _scalarization(self, y, weight_vector): 
         y = np.atleast_2d(y)
@@ -178,11 +165,96 @@ class moslb:
                 return np.sum(y * weight_vector, axis=1)
             
 
+class DF_TSLB(moslb): 
+    def __init__(self, 
+                 num_arm,
+                 num_dim, 
+                 num_obj, 
+                 budget: int, 
+                 lamda = 1, 
+                 delta = 0.05, 
+                 opt_type = 'max', 
+                 B: float = 1.0, 
+                 ):
+        super().__init__(num_arm, num_dim, num_obj, lamda, delta, opt_type)
+        self.B = B
+        self.T = budget
+        
+    def reset(self) -> None: 
+        super().reset() 
+        self.V = self.lamda * np.eye(self.d) 
+        self.theta = np.zeros((self.m, self.d))
+        self.V_inv = 1/self.lamda * self.V 
+        # 
+        self.s = 1
+        self.A_s = np.arange(self.K)
+        
+    def take_action(self, 
+                    context: np.array,
+                    problem_lamda: float = 1.,  
+                    alpha = 1):
+        if self.total_counts < self.K: 
+            return np.random.choice(np.where(self.counts<1)[0])
+        
+        arm_uncertainty = np.array([
+            self.estimate_uncertainty(arm) for arm in context
+        ]) / alpha
+        # exploration parameters 
+        R = 1.0
+        self.alpha_t = (R * np.sqrt(self.d * np.log(4*self.t*self.m*self.T/self.delta)) + self.B) / alpha 
+        self.beta_t = self.alpha_t * np.sqrt(2 * self.d * np.log(4*self.t*self.m*self.T/self.delta))
+        # decision making process
+        arm_reward =  context @ self.theta.T
+        if np.max(arm_uncertainty) <= (1 / self.T): 
+            opt_ind = [self.A_s]
+            for i in range(self.m): 
+                opt_ind.append(
+                    self.max_filter(opt_ind[-1],
+                                    arm_reward[:,i],
+                                    2.+np.sum([4*problem_lamda**j for j in range(i+1)]), 
+                                    (self.alpha_t+self.beta_t)/np.sqrt(self.T))
+                )
+            for i in reversed(range(len(opt_ind))): 
+                if len(opt_ind[i]) > 0: 
+                    return np.random.choice(opt_ind[i]).item()
+        elif np.max(arm_uncertainty) > 2**(-self.s): 
+            return np.random.choice(np.where(arm_uncertainty>2**(-self.s))[0]).item()
+        else: 
+            opt_ind = [self.A_s] 
+            for i in range(self.m): 
+                opt_ind.append(
+                    self.max_filter(opt_ind[-1],
+                                    arm_reward[:,i],
+                                    2.+np.sum([4*problem_lamda**j for j in range(i+1)]), 
+                                    (self.alpha_t+self.beta_t)/(2**(-self.s)))
+                )
+            for i in reversed(range(len(opt_ind))): 
+                if len(opt_ind[i]) > 0: 
+                    self.A_s = opt_ind[i] 
+                    self.s += 1
+                    return self.take_action(context, problem_lamda, alpha)
+        
+    @classmethod
+    def max_filter(cls, 
+                   opt_ind: np.ndarray, 
+                   mean: np.ndarray, 
+                   problem_lamda: float, 
+                   C: float, 
+                   ): 
+        max_mean = np.max(mean[opt_ind]) 
+        sub_opt_ind = [i for i in opt_ind if (max_mean - mean[i]) <= problem_lamda * C]
+        return np.array(sub_opt_ind)
+        
+        
+        
+    
+ 
+
 if __name__ == '__main__': 
     print() 
     import numpy as np 
 
-    from zomba.multiObjective.stochastic import MONeural, moslb
+    from zomba.multiObjective.algorithms.stochastic import MONeural, moslb
     from zomba.multiObjective.utils import runif_in_simplex
     from pymoo.problems import get_problem 
 

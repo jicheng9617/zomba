@@ -35,6 +35,10 @@ class MABAgent:
     def action_history(self): 
         return np.array(self._action_list)
     
+    @property
+    def optimal_arms(self) -> np.ndarray: 
+        return self.opt_ind
+    
     def reset(self, 
               num_arm: int = None, 
               ) -> None:
@@ -75,7 +79,7 @@ class moMABAgent(MABAgent):
                  num_arm = None, 
                  num_obj = None, 
                  ) -> None:
-        super().__init__(num_arm)
+        super().__init__(num_arm=num_arm)
         self.m = num_obj
         
     @property
@@ -89,6 +93,9 @@ class moMABAgent(MABAgent):
         super().reset(num_arm)
         if num_obj is not None: self.m = num_obj
         self.mean_reward = np.zeros((self.K, self.m))
+
+    def update(self, info):
+        return super().update(info)
      
         
 class contextMABAgent(MABAgent): 
@@ -108,7 +115,7 @@ class contextMABAgent(MABAgent):
         return self.d  
     
     @property 
-    def context_his(self): 
+    def context_history(self): 
         return np.vstack(self.X_list) 
     
     def reset(self, 
@@ -140,4 +147,56 @@ class contextMABAgent(MABAgent):
         self.X_list.append(context)
         
     
+class moContextMABAgent(moMABAgent): 
+    def __init__(self, 
+                 num_dim: int, 
+                 num_arm: int = None,
+                 num_obj: int = None, 
+                 lamda:float=1.,
+                 delta:float=.05, 
+                 ) -> None:
+        super().__init__(num_arm=num_arm, 
+                         num_obj=num_obj)
+        self.d = num_dim 
+        self.lamda = lamda 
+        self.delta = delta 
         
+    @property 
+    def num_dim(self): 
+        return self.d  
+    
+    @property 
+    def context_history(self): 
+        return np.vstack(self.X_list) 
+    
+    def reset(self, 
+              num_arm: int = None, 
+              num_obj: int = None, 
+              num_dim: int = None, 
+              ) -> None:
+        super().reset(num_arm, num_obj)
+        if num_dim is not None: self.d = num_dim
+        if num_obj is not None: self.m = num_obj
+        assert self.d is not None, "Please define dimension of arms' context!"
+        self.X_list = [] 
+        
+    def take_action(self, 
+                    context: np.ndarray) -> int:
+        return super().take_action() 
+    
+    def update(self, 
+               info: Union[int, float, np.ndarray]
+               ) -> None:
+        """
+        Update parameters of the algorithm.
+
+        Parameters
+        ----------
+        info : Union[int, float, np.ndarray]
+            information containing the last chosen action, observed reward, and the context for that arm
+        """
+        action, reward, context = info
+        super().update((action, reward))
+        self.X_list.append(context)
+        
+    

@@ -1,10 +1,10 @@
-import numpy as np 
-
 from typing import Union
+import numpy as np 
 
 from zomba.core import contextMABAgent
 
-class SLBUCB(contextMABAgent): 
+
+class UCB_TS(contextMABAgent): 
     
     def __init__(self, 
                  num_dim: int, 
@@ -12,10 +12,12 @@ class SLBUCB(contextMABAgent):
                  lamda: float = 1, 
                  delta: float = 0.05, 
                  rarely_switch: bool = False, 
+                 action_type: str = 'UCB', 
                  alpha: float = 1.,
                  ) -> None:
         super().__init__(num_dim, num_arm, lamda, delta)
         self.rarely_switch = rarely_switch
+        self.action_type = action_type
         self.alpha = alpha
         
     def reset(self, 
@@ -48,13 +50,23 @@ class SLBUCB(contextMABAgent):
         int
             index of selected arm
         """
+        if self.t == 5000: 
+            print()
+        if self.total_counts < self.K: 
+            return np.random.choice(np.where(self.counts<1)[0])
         if alpha is not None: 
             self.alpha = alpha
         # else:
             # self.alpha = np.sqrt(self.d * np.log((1 + self.t/self.lamda) / self.delta)) + np.sqrt(self.lamda)
         X = np.atleast_2d(context)
-        ucb = X @ self.theta.T + self.alpha * self._eval_uncertainty(X)
-        return np.argmax(ucb).item()
+        predict_mean = X @ self.theta
+        if self.action_type.lower() == 'ucb': 
+            metric = predict_mean + self.alpha * self._eval_uncertainty(X)
+        elif self.action_type.lower() == 'ts': 
+            nu = np.sqrt(24. / self.alpha * self.d * np.log(1/self.delta))
+            theta_tilde = np.random.multivariate_normal(mean=predict_mean, cov=nu**2 * self.V_inv)
+            metric = X @ theta_tilde
+        return np.argmax(metric).item()
         
     def update(self, 
                info: Union[int, float, np.ndarray]
@@ -77,7 +89,7 @@ class SLBUCB(contextMABAgent):
                 self.V_inv = np.linalg.pinv(self.V) 
         else: 
             self.V_inv = np.linalg.pinv(self.V)
-        self.theta = self.V_inv @ self.context_his.T @ self.reward_his.T
+        self.theta = self.V_inv @ self.context_history.T @ self.reward_history
     
     def _eval_uncertainty(self, context: np.ndarray) -> np.ndarray: 
         mahanalobis_dis = [np.sqrt(context[i] @ self.V_inv @ context[i].T) 
@@ -86,28 +98,6 @@ class SLBUCB(contextMABAgent):
         
 
 
-class ucb_gpt(SLBUCB): 
-    
-    def update(self, info) -> None:
-        super().update(info) 
-        self.alpha = np.sqrt(np.log(self.round + 1) / (self.reward_his.size + self.round + 1 + 1e-8))
-
-
     
 if __name__ == "__main__": 
     print() 
-    from zomba.singleObjective.simulator import SLBSimulator 
-    env = SLBSimulator(num_arm=5, num_dim=3) 
-    env.reset(verbose=1)
-    alg = SLBUCB(num_arm=5, num_dim=3, rarely_switch=1) 
-    alg.reset()
-    cum_reg = 0 
-    for _ in range(5000): 
-        X = env.observe_context() 
-        a_t = alg.take_action(X)
-        r_t = env.get_reward(arm=a_t) 
-        cum_reg += env.get_regret(arm=a_t)
-        alg.update(info=(a_t, r_t, X[a_t])) 
-        
-    print(cum_reg)
-    print(alg.counts)

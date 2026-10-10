@@ -1,2 +1,2 @@
-from zomba.singleObjective.stochastic.linear import (SLBUCB, ucb_gpt
+from zomba.singleObjective.stochastic.linear import (UCB_TS
                                                         )
