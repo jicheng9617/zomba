@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,17 +7,37 @@ name = "zomba"
 authors = [
     {name = "Ji Cheng", email = "jicheng9617@gmail.com"},
 ]
-description = "My package description"
+description = "Bandit algorithms with their theory attached: batched simulation, published regret bounds, benchmarks."
 readme = "README.md"
-requires-python = ">=3.7"
-keywords = ["multi-objective", "bandits"]
-license = {text = "BSD-3-Clause"}
+requires-python = ">=3.10"
+keywords = ["bandits", "multi-armed bandits", "regret bounds", "thompson sampling", "multi-objective"]
+license = {text = "MIT"}
 classifiers = [
-    "Framework :: Django",
     "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [
-    "requests",
-    'importlib-metadata; python_version>"3.9"',
-]
+dependencies = ["numpy>=1.24"]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+# zomba.multiObjective (built on zomba.legacy)
+mo = ["torch", "scipy", "scikit-learn", "networkx", "mpire", "matplotlib"]
+# zomba.legacy.singleObjective imports its experiment helpers eagerly
+legacy = ["mpire", "matplotlib"]
+# experiments/ (numba kernels and figures)
+bench = ["numba", "matplotlib"]
+dev = ["pytest>=7"]
+
+[project.urls]
+Repository = "https://github.com/jicheng9617/zomba"
+
+[tool.setuptools.dynamic]
+version = {attr = "zomba.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

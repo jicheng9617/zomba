@@ -1,3 +1,5 @@
+# src/zomba/multiObjective/simulators/contextual.py
+
 import numpy as np 
 import os 
 import pickle
@@ -5,8 +7,9 @@ import pickle
 from zomba.multiObjective.utils import (par_non_dominated_sorting, 
                                         par_suboptimal_gap,
                                         pc_non_dominated_sorting,
-                                        pc_suboptimal_gap)
-from zomba.singleObjective.simulator import contextMABSimulator 
+                                        pc_suboptimal_gap, 
+                                        lex_dominated_sorting)
+from zomba.legacy.singleObjective.simulator import contextMABSimulator 
 
 
 class moContextMABSimulator(contextMABSimulator):
@@ -62,33 +65,41 @@ class moContextMABSimulator(contextMABSimulator):
         return self.arm_context
     
     def _eval_optimal(self, weight_vector=None):
-        self.expected_rewards = self._h(self.A)
+        self.expected_rewards = self._reward_func(self.A)
         # evaluate the optimal indexs
         match self.obj_preference.lower():
             case 'pareto': 
                 self.opt_arm = par_non_dominated_sorting(self.expected_rewards)
             case 'scalarization': 
-                self.opt_arm = np.argmax(self._scalarization(self.expected_rewards, weight_vector)) if self.opt_type.lower() == 'max' else np.argmin(self._scalarization(self.expected_rewards, weight_vector))
+                if self.opt_type.lower() == 'max':
+                    self.opt_arm = np.argmax(self._scalarization(self.expected_rewards, weight_vector))  
+                else:
+                    self.opt_arm = np.argmin(self._scalarization(self.expected_rewards, weight_vector))
+            case 'lexicographic': 
+                self.opt_arm = lex_dominated_sorting(self.expected_rewards)
 
     def  _eval_regret_arm(self, arm, weight_vector):
         # get the expected reward for the arm
-        arm_y = self._h(arm)
+        arm_y = self._reward_func(arm)
         # different regret type w.r.t. the preference setting
         match self.obj_preference.lower():
             case 'pareto': 
                 # evaluate the Pareto suboptimal gap for the arm 
                 return par_suboptimal_gap(arm_y, self.expected_rewards[self.opt_arm])
             case 'scalarization': 
-                return self._scalarization(arm_y, weight_vector) - self._scalarization(self.expected_rewards[self.opt_arm], weight_vector) if self.opt_type.lower() == 'min' else self._scalarization(self.expected_rewards[self.opt_arm], weight_vector) - self._scalarization(arm_y, weight_vector)
+                if self.opt_type.lower() == 'min':
+                    return self._scalarization(arm_y, weight_vector) - self._scalarization(self.expected_rewards[self.opt_arm], weight_vector)  
+                else:
+                    return self._scalarization(self.expected_rewards[self.opt_arm], weight_vector) - self._scalarization(arm_y, weight_vector)
     
     def _noise(self, size: int): 
-        return np.random.normal(loc=0.0, scale=self.R, size=(size, self.m))
+        return np.random.normal(loc=0.0, scale=np.sqrt(self.R), size=(size, self.m))
     
     def get_reward(self, arm: int) -> np.ndarray:
         if isinstance(arm, np.ndarray):
-            return self._h(arm) + self._noise(size=len(arm))
+            return self._reward_func(arm) + self._noise(size=len(arm))
         else: 
-            return self._h(arm) + self._noise(size=1).squeeze()
+            return self._reward_func(arm) + self._noise(size=1).squeeze()
         
     def _scalarization(self, 
                        y: np.ndarray, 
@@ -126,8 +137,6 @@ class moContextMABSimulator(contextMABSimulator):
         else: 
             return self._eval_regret_arm(arm, weight_vector) 
         
-
-
 
 class moSLBSimulator(moContextMABSimulator):
     def __init__(self, 
@@ -193,12 +202,6 @@ class moSLBSimulator(moContextMABSimulator):
         self._sample_context()
         self._eval_optimal()
         if verbose: self.print_info()
-
-    def observe_context(self) -> np.ndarray:
-        return super().observe_context()
-    
-    def get_regret(self, arm: any) -> np.ndarray:
-        return super().get_regret(arm)
     
     def get_reward(self, arm: int) -> np.ndarray:
         if isinstance(arm, np.ndarray):
@@ -227,7 +230,7 @@ class moSLBSimulator(moContextMABSimulator):
             case 'pareto': 
                 self.opt_arm = par_non_dominated_sorting(self.expected_rewards)
             case 'lexicographic': 
-                self.opt_arm = None
+                self.opt_arm = lex_dominated_sorting(self.expected_rewards)
             case 'mpl-pc': 
                 tmp_y = [self.expected_rewards[:,ind] for ind in self.priority]
                 self.opt_arm = pc_non_dominated_sorting(tmp_y)
@@ -239,9 +242,6 @@ class moSLBSimulator(moContextMABSimulator):
                         opt_arm[-1][par_non_dominated_sorting(self.expected_rewards[opt_arm[-1]][:, self.priority[i]])]
                     )
                 self.opt_arm = opt_arm[1:]
-
-    def _noise(self, size: int): 
-        return np.random.normal(loc=0.0, scale=self.R, size=(size, self.m))
 
     def _eval_regret_arm(self, arm: int) -> float: 
         """
@@ -264,7 +264,7 @@ class moSLBSimulator(moContextMABSimulator):
                 # evaluate the Pareto suboptimal gap for the arm 
                 gap = par_suboptimal_gap(arm_y, self.expected_rewards[self.opt_arm])
             case 'lexicographic': 
-                pass 
+                gap = self.expected_rewards[self.opt_arm] - arm_y
             case 'mpl-pc': 
                 arm_y = [arm_y[ind] for ind in self.priority]
                 optimal_y = [self.expected_rewards[self.opt_arm][:, ind] for ind in self.priority]
