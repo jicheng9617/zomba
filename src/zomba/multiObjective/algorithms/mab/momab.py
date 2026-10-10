@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import moMABAgent
+from zomba.legacy.core import moMABAgent
 from zomba.multiObjective.utils import prior_free_lexi_filter, max_filter, par_non_dominated_sorting
 
 

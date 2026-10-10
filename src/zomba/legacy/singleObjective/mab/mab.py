@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import MABAgent
+from zomba.legacy.core import MABAgent
 
 
 

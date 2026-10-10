@@ -4,9 +4,9 @@ from mpire import WorkerPool
 import copy
 import math
 
-from zomba.singleObjective.applications import webRecEnv
-from zomba.singleObjective.stochastic import SLBUCB
-from zomba.core import contextMABAgent
+from zomba.legacy.singleObjective.applications import webRecEnv
+from zomba.legacy.singleObjective.stochastic import SLBUCB
+from zomba.legacy.core import contextMABAgent
 
 
 def ucb_scalar(observed_rewards, action_history, counts):

@@ -72,8 +72,8 @@ def plot_regrets(regrets: dict,
 
 if __name__ == "__main__": 
     print()
-    from zomba.singleObjective.stochastic import SLBUCB
-    from zomba.singleObjective.simulator import SLBSimulator
+    from zomba.legacy.singleObjective.stochastic import SLBUCB
+    from zomba.legacy.singleObjective.simulator import SLBSimulator
 
     d = 5
     K = 10

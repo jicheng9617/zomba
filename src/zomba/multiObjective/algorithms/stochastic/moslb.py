@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import moContextMABAgent
+from zomba.legacy.core import moContextMABAgent
 from zomba.multiObjective.utils import par_non_dominated_sorting, max_filter
 
 

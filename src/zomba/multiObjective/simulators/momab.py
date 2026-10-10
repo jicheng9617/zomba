@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import MABEnv
+from zomba.legacy.core import MABEnv
 from zomba.multiObjective.utils import lex_dominated_sorting, par_non_dominated_sorting, par_suboptimal_gap
 
 

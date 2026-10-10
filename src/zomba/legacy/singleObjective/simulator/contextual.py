@@ -3,7 +3,7 @@
 import numpy as np
 from typing import Union
 
-from zomba.core import contextMABEnv
+from zomba.legacy.core import contextMABEnv
 
 class contextMABSimulator(contextMABEnv): 
     def __init__(self, 

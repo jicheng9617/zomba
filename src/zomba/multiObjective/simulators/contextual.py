@@ -9,7 +9,7 @@ from zomba.multiObjective.utils import (par_non_dominated_sorting,
                                         pc_non_dominated_sorting,
                                         pc_suboptimal_gap, 
                                         lex_dominated_sorting)
-from zomba.singleObjective.simulator import contextMABSimulator 
+from zomba.legacy.singleObjective.simulator import contextMABSimulator 
 
 
 class moContextMABSimulator(contextMABSimulator):

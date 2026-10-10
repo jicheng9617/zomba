@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 import networkx as nx
 
-from zomba.core import moContextMABAgent
+from zomba.legacy.core import moContextMABAgent
 from zomba.multiObjective.utils import par_non_dominated_sorting
 
 

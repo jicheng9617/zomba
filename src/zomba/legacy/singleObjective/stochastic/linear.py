@@ -1,7 +1,7 @@
 from typing import Union
 import numpy as np 
 
-from zomba.core import contextMABAgent
+from zomba.legacy.core import contextMABAgent
 
 
 class UCB_TS(contextMABAgent): 

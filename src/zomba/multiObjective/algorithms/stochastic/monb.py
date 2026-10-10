@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import copy
 
-from zomba.core import moContextMABAgent
+from zomba.legacy.core import moContextMABAgent
 
 
 device = 'cpu'

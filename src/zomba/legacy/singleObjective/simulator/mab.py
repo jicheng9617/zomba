@@ -1,6 +1,6 @@
 import numpy as np 
 
-from zomba.core import MABEnv
+from zomba.legacy.core import MABEnv
 
 class MABSimulator(MABEnv): 
     def __init__(self, 

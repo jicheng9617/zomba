@@ -1,5 +1,5 @@
 import numpy as np
-from zomba.core import contextMABEnv 
+from zomba.legacy.core import contextMABEnv 
 
 
 
